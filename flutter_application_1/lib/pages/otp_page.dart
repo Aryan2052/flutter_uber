@@ -6,7 +6,8 @@ class OtpPage extends StatefulWidget {
   final String phoneNumber;
   final String verificationId; // Added verificationId
 
-  const OtpPage({super.key, required this.phoneNumber, required this.verificationId});
+  const OtpPage(
+      {super.key, required this.phoneNumber, required this.verificationId});
 
   @override
   _OtpPageState createState() => _OtpPageState();
