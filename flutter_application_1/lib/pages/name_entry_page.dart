@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'accept_page_details.dart'; // Import the correct Accept Page
+import 'accept_page_details.dart';
+import '../services/firebase_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class NameEntryPage extends StatefulWidget {
   final String email;
-  
+
   const NameEntryPage({super.key, required this.email});
 
   @override
@@ -13,23 +15,56 @@ class NameEntryPage extends StatefulWidget {
 class _NameEntryPageState extends State<NameEntryPage> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
+  final FirebaseService _firebaseService = FirebaseService();
+  bool _isLoading = false;
 
-  void _saveName() {
-    if (_firstNameController.text.isNotEmpty) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AcceptPageDetails(
-            firstName: _firstNameController.text,
-            lastName: _lastNameController.text,
-            email: widget.email,
-          ),
-        ),
-      );
-    } else {
+  Future<void> _saveName() async {
+    if (_firstNameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please enter your first name")),
+        const SnackBar(content: Text("Please enter your first name")),
       );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await _firebaseService.saveUserDetails(
+          user.uid,
+          widget.email,
+          _firstNameController.text,
+          _lastNameController.text,
+        );
+
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AcceptPageDetails(
+              firstName: _firstNameController.text,
+              lastName: _lastNameController.text,
+              email: widget.email,
+            ),
+          ),
+        );
+      } else {
+        throw Exception('User not authenticated');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error saving details: ${e.toString()}")),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -42,39 +77,47 @@ class _NameEntryPageState extends State<NameEntryPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               "What's your name?",
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 5),
-            Text("Let us know how to properly address you."),
-            SizedBox(height: 20),
+            const SizedBox(height: 5),
+            const Text("Let us know how to properly address you."),
+            const SizedBox(height: 20),
             TextField(
               controller: _firstNameController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: "First name",
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             TextField(
               controller: _lastNameController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: "Last name",
                 border: OutlineInputBorder(),
               ),
             ),
-            Spacer(),
+            const Spacer(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: Icon(Icons.arrow_back),
+                  icon: const Icon(Icons.arrow_back),
                   onPressed: () => Navigator.pop(context),
                 ),
                 ElevatedButton(
-                  onPressed: _saveName,
-                  child: Text("Next"),
+                  onPressed: _isLoading ? null : _saveName,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text("Next"),
                 ),
               ],
             ),
